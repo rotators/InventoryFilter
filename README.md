@@ -13,7 +13,7 @@ A mirror repository of the Inventory Filter mod for Fallout 2 by **Mr.Stalin**, 
 ## Installation
 1. Download `F2-InventoryFilter_v*_<language>.rar` from the _Releases_ page.
 2. Extract the archive to main game directory.
-3. Inventory Filter v1.6.0 requires [**sfall**](https://github.com/phobos2077/sfall) (`ddraw.dll`) version 4.2/3.8.29 or later to be fully functional.
+3. Inventory Filter v1.6.1 requires [**sfall**](https://github.com/phobos2077/sfall) (`ddraw.dll`) version 4.2.2/3.8.29 or later to be fully functional.
    * `AllowUnsafeScripting` option in ddraw.ini must be enabled for the filter to function correctly.
    * The "Drop All" button is available only with `InterfaceDontMoveOnTop` option enabled. The option is always enabled in sfall 4.2.8+/3.8.29+.
 4. Edit `mods/InventoryFilter.dat/InventoryFilter.ini` to configure the behavior of the filter.

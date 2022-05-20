@@ -8,11 +8,17 @@
 
 #define SFALL_SC_EVALUATION   (true)
 
-#define COMBINE_VERSION       (1)
-#define SCRIPT_VERSION        " [Advanced v1.6.0]"
+#if TRACE
+#define TRACE(name)           debug_msg("Trace: " #name);
+#else
+#define TRACE(name)
+#endif
 
-#define INI_CONFIG_FILE_SEC   "\\InventoryFilter.dat\\InvenFilter.ini|InventoryFilter|"
+#define COMBINE_VERSION       (1)
+#define SCRIPT_VERSION        " [Advanced v1.6.1]"
+
 #define INI_CONFIG_FILE       "\\InventoryFilter.dat\\InvenFilter.ini"
+#define INI_CONFIG_FILE_SEC   INI_CONFIG_FILE "|InventoryFilter|"
 
 #define genericCrtBox         create_object(PID_MELEE_THUG_MALE, 0, 0)
 
@@ -44,7 +50,6 @@ procedure Check_Party_Obj;
 procedure Move_Dude_Inv;
 procedure check_bags_items(variable who_ptr);
 procedure restore_bags_items(variable who_ptr);
-procedure hAdjustFid;
 procedure hGameModeChange;
 procedure hMoveItemPC;
 procedure hMoveItem;
@@ -83,7 +88,10 @@ procedure print_weight(variable weight, variable maxWeight);
 procedure trader_cost_win;
 procedure hack_engine_weight(variable hack);
 critical procedure Move_Object_Inventary(variable src_obj, variable dst_obj, variable all);
+procedure GetAndSaveDudeWeight;
+procedure GetDudeWeightBonus;
 procedure SwappingParty(variable type, variable value);
+procedure SetDudeSwapWeight(variable swapCritter);
 procedure get_party_array(variable ptr_check);
 procedure swap_button_pressed(variable btn);
 procedure next_swap_ptr;
@@ -158,7 +166,7 @@ procedure key_drop_release;
 
 /* Local variables which do not need to be saved */
 variable begin
-   iniConfigFile;
+   iniConfig;
    screen_width_half, screen_height_half;
    x_mouse, y_mouse, posXmouse, posYmouse;
 
@@ -202,7 +210,7 @@ variable begin
    filter_done := true;
    loot_weight;
    pc_bTable, tr_bTable;
-   smart_barter;
+   smart_barter, trade_money_msg;
 
    container_array;
    container_count_array;
@@ -226,12 +234,12 @@ variable begin
    btnDropAll, btnGiveAll, useBackImage, dropPress, drop_key_code, dropKeyWin;
    prevGameMode;
 
-   dudeBaseMaxWeight, dudeExtraMaxWeight, dudeEquipItemsWeight, dudeMaxWeight := -1;
+   dudeBaseMaxWeight, dudeExtraMaxWeight, dudeEquipItemsWeight, dudeWeightBonus, swapMaxWeight := -1;
    isPartyInBarter, partyBaseMaxWeight, partyExtraMaxWeight, partyMaxWeight := -1;
 end
 
 procedure start begin
-   variable unsafe, item, pid, build, isCrafry, iniConfig, temp;
+   variable unsafe, item, pid, build, isCrafry, iniConfigFile, temp;
 
    if game_loaded then begin
 
@@ -239,8 +247,8 @@ procedure start begin
 
       temp := get_ini_string("ddraw.ini|ExtraPatches|AutoSearchPath");
       if temp == "" then temp := "mods";
-      iniConfig := temp + INI_CONFIG_FILE;
-      iniConfigFile := temp + INI_CONFIG_FILE_SEC;
+      iniConfigFile := temp + INI_CONFIG_FILE;
+      iniConfig := temp + INI_CONFIG_FILE_SEC;
 
       build := sfall_ver_build;
       isCrafry := (build == "sfall2" or build == 509);
@@ -250,7 +258,7 @@ procedure start begin
          unsafe := get_ini_setting("ddraw.ini|Debugging|AllowUnsafeScripting");
          //unsafe := unsafe bwand get_ini_setting("ddraw.ini|Debugging|Enable");
          if unsafe <= 0 then begin
-            display_msg(get_ini_string(iniConfigFile + "MsgLoad"));
+            display_msg(get_ini_string(iniConfig + "MsgLoad"));
             return;
          end
       end
@@ -266,36 +274,37 @@ procedure start begin
          sfall_game_mode := (sfall_version >= 3810); // 3.8.10
       end else no_check_bags := true; // исправлена ошибка удаления контейнеров
 
-      if not(enable_filter) then display_msg(get_ini_string(iniConfigFile + "MsgInfo"));
-      enable_weight := get_ini_setting(iniConfigFile + "ShowWeight");
-      enable_caps := get_ini_setting(iniConfigFile + "ShowCaps");
-      smart_barter := get_ini_setting(iniConfigFile + "SmartBarter");
+      if not(enable_filter) then display_msg(get_ini_string(iniConfig + "MsgInfo"));
+      enable_weight := get_ini_setting(iniConfig + "ShowWeight");
+      enable_caps := get_ini_setting(iniConfig + "ShowCaps");
+      smart_barter := get_ini_setting(iniConfig + "SmartBarter");
+      trade_money_msg = get_ini_string(iniConfig + "BarterCaps");
 
-      if (get_ini_setting(iniConfigFile + "UseOldHRP") > 0) then begin
+      if (get_ini_setting(iniConfig + "UseOldHRP") > 0) then begin
          x_shift_main := 9;
          x_shift_use := -95;
          x_shift_loot := 28;
       end
 
       if (isCrafry == false) then begin
-         drop_key_code := get_ini_setting(iniConfigFile + "DropAllButtonKey");
+         drop_key_code := get_ini_setting(iniConfig + "DropAllButtonKey");
          if drop_key_code < 0 then drop_key_code := 0;
          if (sfall_ver_major >= 4 and sfall_ver_minor >= 1) then begin
-            btnDropAll := get_ini_setting(iniConfigFile + "DropAllButton");
-            btnGiveAll := get_ini_setting(iniConfigFile + "UseGiveAllImage");
-            useBackImage  := get_ini_setting(iniConfigFile + "UseBackImage");
+            btnDropAll := get_ini_setting(iniConfig + "DropAllButton");
+            btnGiveAll := get_ini_setting(iniConfig + "UseGiveAllImage");
+            useBackImage  := get_ini_setting(iniConfig + "UseBackImage");
          end
       end
-      enable_swap := get_ini_setting(iniConfigFile + "SwapParty");
+      enable_swap := get_ini_setting(iniConfig + "SwapParty");
 
       if (sfall_version >= 4200) then begin
-         hotKeys := get_ini_section(iniConfig, "HotKeys");
+         hotKeys := get_ini_section(iniConfigFile, "HotKeys");
          foreach (temp : item in hotKeys) begin
             if (typeof(item) == VALTYPE_STR) then hotKeys[temp] := atoi(item);
          end
          fix_array(hotKeys);
       end
-      temp := get_ini_setting(iniConfigFile + "TextColor");
+      temp := get_ini_setting(iniConfig + "TextColor");
       switch (temp) begin
         case 1 : r := 0.72; g := 0.72; b := 0.2; // yellow
         case 2 : r := 0.9; g := 0.9; b := 0.9;   // near white
@@ -334,25 +343,23 @@ procedure start begin
       end
 
       if (enable_swap) then begin
-         swap_all_containers := get_ini_setting(iniConfigFile + "SwapContainers");
-         swap_loot_offset := get_ini_setting(iniConfigFile + "SwapLootOffset");
-         swap_barter_offset := get_ini_setting(iniConfigFile + "SwapBarterOffset");
+         swap_all_containers := get_ini_setting(iniConfig + "SwapContainers");
+         swap_loot_offset := get_ini_setting(iniConfig + "SwapLootOffset");
+         swap_barter_offset := get_ini_setting(iniConfig + "SwapBarterOffset");
       end
 
-     #if DEBUG
-        // test items
-        counter := 50;
+     #if DEBUG // test items
+        temp := 50;
         item_caps_adjust(dude_obj, 1000);
-        while counter > 0 do begin
+        while temp > 0 do begin
            pid := random(1, 618);
            if get_proto_data(pid, PROTO_IT_TYPE) != item_type_container then begin
               item := create_object(pid, 0, 0);
               add_mult_objs_to_inven(dude_obj, item, 1);
-              counter -= 1;
+              temp -= 1;
            end
         end
      #endif
-
    end
    else begin
       ////////// Check object region ////////////////
@@ -373,13 +380,15 @@ procedure start begin
       #endif
       ////////////////////////////////////////////////
 
-      if (enable_weight) then begin // refresh weight win
+      if (inventory_once and enable_weight) then begin // refresh weight win
          if (loot_weight and loot_filter) then begin
+            TRACE("refresh weight 1")
             call weight_loot_win(contr_ptr);
             call weight_win(who_carry_amount(dude_obj), 0);
             loot_weight := false;
          end
          if (refresh_weight) then begin
+            TRACE("refresh weight 2")
             if (inven_weight) then call barter_weight_win(0);
             if (inven_party_weight) then call party_weight_win(0);
             refresh_weight := false;
@@ -431,10 +440,13 @@ procedure DestroyFilterWin begin //inventory off
           if inven_caps then deleteWin("inven_caps");
           inven_caps := false;
           tr_bTable := 0;
-          set_pc_base_stat(STAT_carry_amt, dudeBaseMaxWeight);
-          set_pc_extra_stat(STAT_carry_amt, dudeExtraMaxWeight);
+          if (swapMaxWeight != -1) then begin
+             debug_msg("Filter: Restore dude carry stats.");
+             set_pc_base_stat(STAT_carry_amt, dudeBaseMaxWeight);
+             set_pc_extra_stat(STAT_carry_amt, dudeExtraMaxWeight);
+          end
           if (isPartyInBarter) then begin
-            set_critter_base_stat(trader_ptr, STAT_carry_amt, partyBaseMaxWeight);
+            //set_critter_base_stat(trader_ptr, STAT_carry_amt, partyBaseMaxWeight);
             set_critter_extra_stat(trader_ptr, STAT_carry_amt, partyExtraMaxWeight);
             if inven_party_weight then deleteWin("inven_party_weight");
             inven_party_weight := false;
@@ -454,23 +466,20 @@ procedure DestroyFilterWin begin //inventory off
    critter := 0;
    critter_tbox := 0;
    trader_ptr := 0;
-   dudeMaxWeight := -1;
+   swapMaxWeight := -1;
    partyMaxWeight := -1;
    if (_hack_weight) then call hack_engine_weight(false);
 end
 
 procedure CreateInvenFilterMenu(variable loot) begin
 
+   TRACE("CreateInvenFilterMenu")
+
    // параметры окна
    menu_x := (screen_width_half);
    menu_y := (screen_height_half);
 
    if (get_game_mode bwand DIALOG) then begin
-      dudeBaseMaxWeight := get_pc_base_stat(STAT_carry_amt);
-      dudeExtraMaxWeight := get_pc_extra_stat(STAT_carry_amt);
-      dudeMaxWeight := dudeBaseMaxWeight + dudeExtraMaxWeight;
-      if (dudeMaxWeight > 999) then dudeMaxWeight := 999;
-
       menu_x -= 320;                  //- 384   //- 320 for olymp
       menu_y -= 150 + shift_y;       //+ 40   //- 150  for olymp
    end
@@ -497,7 +506,7 @@ procedure CreateInvenFilterMenu(variable loot) begin
    selectWin("inven_filter");
    display("PCX\\inv_filter\\main_form.pcx");
 
-   if not(loot) then call Create_btn_all("on", 0);
+   if (loot == false) then call Create_btn_all("on", 0);
    call Create_btn_armor("off", 0);
    call Create_btn_weapon("off", 0);
    call Create_btn_ammo("off", 0);
@@ -507,11 +516,11 @@ procedure CreateInvenFilterMenu(variable loot) begin
    showWin;
 
    if (get_game_mode bwand DIALOG) then begin
+      if enable_swap then call barter_swap_win;
       if enable_weight then call barter_weight_win(0);
-      call barter_swap_win when (enable_swap);
    end
    else if (enable_swap and loot and (swap_all_containers or contr_ptr == Trunk_Ptr)) then begin
-      call loot_swap_win when (contr_use);
+      if contr_use then call loot_swap_win;
    end
 
    btn_all    := not(loot);
@@ -525,6 +534,8 @@ end
 
 procedure CreateInvenFilterMenu_trader(variable loot) begin
 
+   TRACE("CreateInvenFilterMenu_trader")
+
    // параметры окна
    if loot then
       t_menu_x := (screen_width_half) + 269 + x_shift_loot; // for Loot
@@ -536,7 +547,7 @@ procedure CreateInvenFilterMenu_trader(variable loot) begin
    selectWin("inven_filter_trd");
    display("PCX\\inv_filter\\main_form.pcx");
 
-   if not(loot) then call Create_btn_all("on", 1);
+   if (loot == false) then call Create_btn_all("on", 1);
    call Create_btn_armor("off", 1);
    call Create_btn_weapon("off", 1);
    call Create_btn_ammo("off", 1);
@@ -545,15 +556,16 @@ procedure CreateInvenFilterMenu_trader(variable loot) begin
 
    showWin;
 
-   if (not(loot)) then begin
+   if (loot == false) then begin
       isPartyInBarter := is_in_array(trader_ptr, party_member_list_critters);
       if (enable_caps and not(isPartyInBarter)) then call trader_cost_win;
 
       if (enable_weight and isPartyInBarter) then begin
-         partyBaseMaxWeight := get_critter_base_stat(trader_ptr, STAT_carry_amt);
+         //partyBaseMaxWeight := get_critter_base_stat(trader_ptr, STAT_carry_amt);
          partyExtraMaxWeight := get_critter_extra_stat(trader_ptr, STAT_carry_amt);
-         partyMaxWeight := partyBaseMaxWeight + partyExtraMaxWeight;
-         if (partyMaxWeight > 999) then partyMaxWeight := 999;
+         partyMaxWeight := get_critter_stat(trader_ptr, STAT_carry_amt); //partyBaseMaxWeight + partyExtraMaxWeight;
+         //if (partyMaxWeight > 999) then partyMaxWeight := 999;
+
          call party_weight_win(0);
       end
    end
@@ -572,6 +584,8 @@ variable begin
    crttr, intfc := 3;
    weight;
 end
+
+   TRACE("filter_inventory")
 
    /*if loot_filter then*/ filter_done := false;
 
@@ -617,14 +631,18 @@ end
         intfc := 2;
       end
       else begin // for dude_in_barter
-         // уменьшаем максимальный вес, для того что бы игрок не смог превысить допустимый переносимый вес
+         // сохраняем статы веса игрока если еще не были сохранены
+         if (swapMaxWeight == -1) then call GetAndSaveDudeWeight;
+         // уменьшаем максимальный вес PC, для того что бы игрок не смог превысить допустимый переносимый вес
          weight := who_carry_amount(critter); // вес отфильтрованных предметов
-         set_pc_base_stat(STAT_carry_amt, 0);
+         set_pc_base_stat(STAT_carry_amt, dudeWeightBonus); // учитываем возможный -+бонус у игрока
          // проверить ведется ли свап обмен
-         if (swap_ptr and swap_ptr != dude_obj) then
-             set_pc_extra_stat(STAT_carry_amt, get_critter_stat(swap_ptr, STAT_carry_amt) - weight + dudeEquipItemsWeight);
+         if (swap_ptr and swap_ptr != dude_obj) then begin
+            weight += who_carry_amount(swap_ptr); // + экипировка криттера
+            set_pc_extra_stat(STAT_carry_amt, get_critter_stat(swap_ptr, STAT_carry_amt) - weight + dudeEquipItemsWeight);
+         end
          else begin
-             set_pc_extra_stat(STAT_carry_amt, dudeMaxWeight - weight);
+            set_pc_extra_stat(STAT_carry_amt, swapMaxWeight - weight);
          end
       end
       call refresh_dude_interface_slots(intfc);
@@ -652,6 +670,8 @@ end
 procedure filter_inventory_trader(variable filter_item_type) begin
 
 variable weight, item, intfc := 3;
+
+   TRACE("filter_inventory_trader")
 
    // перемещаем инвентарь контейнера в инвентарь криттера
    if loot_filter then begin
@@ -692,8 +712,8 @@ variable weight, item, intfc := 3;
    else if (isPartyInBarter) then begin
       // уменьшаем максимальный вес, для того что бы игрок не смог превысить допустимый переносимый вес
       weight := who_carry_amount(critter_tbox); // вес отфильтрованных предметов
-      set_critter_base_stat(trader_ptr, STAT_carry_amt, 0);
-      set_critter_extra_stat(trader_ptr, STAT_carry_amt, partyMaxWeight - weight);
+      //set_critter_base_stat(trader_ptr, STAT_carry_amt, 0);
+      set_critter_extra_stat(trader_ptr, STAT_carry_amt, partyExtraMaxWeight - weight);
    end
    write_int(0x59E7EC + (read_int(0x59E948) * 4), 0);
    call_offset_v4(0x47036C, 0, -1, read_int(0x59E978), intfc); /* display_target_inventory_ */
@@ -812,7 +832,7 @@ procedure check_tile_object begin
       else contr_ptr := 0;
    end
    #if COMBINE_VERSION
-   else if not(sfall_game_mode) then begin // для старых оригинальных версий без LOOT
+   else if (sfall_game_mode == false) then begin // для старых оригинальных версий без LOOT
       if Trunk_Ptr != contr_ptr then
          contr_ptr := 0;
    end
@@ -1052,6 +1072,8 @@ procedure hMoveItem begin
 
    // flag
    if get_sfall_arg == RMOBJ_TRADE then begin
+      TRACE("hMoveItem RMOBJ_TRADE")
+
       refresh_weight := true;
 /*
       weight := call_offset_r1(0x477B88, item) * count; // item_weight_
@@ -1073,16 +1095,16 @@ end
 
 procedure hBarter begin
 /*
-   critter arg1 - the critter doing the bartering (either dude_obj or inven_dude)
-   critter arg2 - the critter being bartered with
-   int     arg3 - the default value of the goods
-   critter arg4 - the barter critter (has all of the goods being traded in its inventory)
-   int     arg5 - the amount of actual caps in the barter stack (as opposed to goods)
-   int     arg6 - the value of all goods being traded before skill modifications
+   critter arg0 - the critter doing the bartering (either dude_obj or inven_dude)
+   critter arg1 - the critter being bartered with
+   int     arg2 - общая стоимость предложенных товаров у тоговца (the default value of the goods)
+   critter arg3 - the barter critter (has all of the goods being traded in its inventory)
+   int     arg4 - the amount of actual caps in the barter stack (as opposed to goods)
+   int     arg5 - цена всех товаров (the value of all goods being traded before skill modifications)
    +
-   critter arg7 - указатель на "стол" с предложенными игроком товарами
-   int     arg8 - общая стоимость предложенных игроком товаров (отдельно можно узнать количество денег с помощью item_caps_total(arg7))
-   int     arg9 - 1 если была нажата кнопка "предложения обмена" не сопартийцу, иначе 0.
+   critter arg6 - указатель на "стол" с предложенными игроком товарами
+   int     arg7 - общая стоимость предложенных игроком товаров (отдельно можно узнать количество денег с помощью item_caps_total(arg7))
+   int     arg8 - 1 если была нажата кнопка "предложения обмена" не сопартийцу, иначе 0.
 */
    variable barter_args, caps, diff, playerCost;
 
@@ -1098,28 +1120,27 @@ procedure hBarter begin
       pc_bTable := barter_args[6];
    end
 
-   if smart_barter and barter_args[8] and party_member_obj(obj_pid(trader_ptr) == 0) then begin
-      if (item_caps_total(pc_bTable) != barter_args[7]) then begin
-         diff := barter_args[2] - barter_args[7]; // разница цены в предложенных товарах, отрицательное - задолженность для торговца
-         if (diff < 0) then begin
-            caps := item_caps_total(trader_ptr);
-            if (caps > 0) then begin
-               if (0 - diff) > caps then diff := 0 - caps;
-            end else diff := 0;
-         end
-         else if (item_caps_total(dude_obj) < diff) then diff := 0;
+   if smart_barter and barter_args[8] and party_member_obj(obj_pid(trader_ptr)) == 0 then begin
+      diff := barter_args[2] - barter_args[7]; // разница цены в предложенных товарах, отрицательное - задолженность для торговца
+      if (diff < 0) then begin
+         caps := item_caps_total(trader_ptr);
+         if (caps > 0) then begin
+            if (0 - diff) > caps then diff := 0 - caps;
+         end else diff := 0;
+      end
+      else if (item_caps_total(pc_bTable) == 0 or item_caps_total(dude_obj) < diff) then diff := 0;
 
-         if (diff != 0) then begin
-            item_caps_adjust(dude_obj, -diff);
-            item_caps_adjust(trader_ptr, diff);
+      if (diff != 0) then begin
+         item_caps_adjust(dude_obj, -diff);
+         item_caps_adjust(trader_ptr, diff);
+         if (diff > 0 and trade_money_msg) then display_msg(sprintf(trade_money_msg, diff));
 
-            playerCost := barter_args[7];
-            set_sfall_arg(2, playerCost);
-            set_sfall_return(playerCost); // возвращаем цену для торговца равную общей стоимости товаров игрока
-         end
+         playerCost := barter_args[7];
+         set_sfall_arg(2, playerCost);
+         set_sfall_return(playerCost); // возвращаем цену для торговца равную общей стоимости товаров игрока
       end
    end
-   call trader_cost_win when (inven_caps and enable_caps);
+   if (inven_caps and enable_caps) then call trader_cost_win;
 end
 
 procedure hKeyPress begin
@@ -1131,11 +1152,11 @@ variable type  := get_sfall_arg, // event type: 1 - pressed, 0 - released
    if key == DIK_F11 and get_game_mode == 0 and type == 0 then begin
       if enable_filter then begin
          enable_filter := false;
-         display_msg(get_ini_string(iniConfigFile + "MsgOff")); //"Inventory Filter is disabled."
+         display_msg(get_ini_string(iniConfig + "MsgOff")); //"Inventory Filter is disabled."
          set_global_script_repeat(0);
       end else begin
          enable_filter := true;
-         display_msg(get_ini_string(iniConfigFile + "MsgOn") + SCRIPT_VERSION); //"Inventory Filter is enabled."
+         display_msg(get_ini_string(iniConfig + "MsgOn") + SCRIPT_VERSION); //"Inventory Filter is enabled."
          set_global_script_repeat(1 + (sfall_game_mode * 10));
       end
       set_sfall_global("INV_FLTR", not(enable_filter));
@@ -1274,7 +1295,7 @@ variable _curr_stack, text;
       _curr_stack := read_int(0x59E96C);  // проверить открыты ли сумки
       if _curr_stack > 0 then begin
         play_sfx("IISXXXX1");
-        text := get_ini_string(iniConfigFile + "MsgWarning");
+        text := get_ini_string(iniConfig + "MsgWarning");
         if not(dude_in_barter) then create_message_window(text); else display_msg(text);
       end
       else begin
@@ -1339,7 +1360,7 @@ variable _target_curr_stack, text;
        _target_curr_stack := read_int(0x59E948);  // проверить открыты ли сумки у цели
        if _target_curr_stack > 0 then begin
            play_sfx("IISXXXX1");
-           text := get_ini_string(iniConfigFile + "MsgWarning");
+           text := get_ini_string(iniConfig + "MsgWarning");
            if loot_filter then create_message_window(text); else display_msg(text);
        end
        else begin
@@ -1512,8 +1533,8 @@ procedure HightlightButton(variable btn, variable flag, variable trd) begin
    variable btn_name, btn_on, btn_hover;
 
    btn_name  := "filter_" + btn + "_" + flag + trd;
-   btn_on    := "PCX/inv_filter/btn_" + btn + "_on.pcx";
-   btn_hover := "PCX/inv_filter/btn_" + btn + "_hover_on.pcx";
+   btn_on    := "PCX\\inv_filter\\btn_" + btn + "_on.pcx";
+   btn_hover := "PCX\\inv_filter\\btn_" + btn + "_hover_on.pcx";
 
    selectWin("inven_filter");
    AddButtonGFX(btn_name, btn_on, btn_on, btn_hover);
@@ -1560,6 +1581,9 @@ end
 
 procedure refresh_pc_weight begin
    variable equp, item;
+
+   TRACE("refresh_pc_weight")
+
    item := critter_inven_obj2(dude_obj, INVEN_TYPE_WORN);
    if (item) then equp := proto_data(obj_pid(item), it_weight);
    item := critter_inven_obj2(dude_obj, INVEN_TYPE_LEFT_HAND);
@@ -1571,7 +1595,9 @@ procedure refresh_pc_weight begin
 end
 
 procedure weight_win(variable weight, variable type) begin
-   variable wMax := dudeMaxWeight if (dudeMaxWeight != -1) else dude_max_carry;
+   variable wMax := swapMaxWeight if (swapMaxWeight != -1) else dude_max_carry;
+
+   TRACE("weight_win")
 
    //создание окна для отображения веса предметов
    if not(inven_weight) then begin
@@ -1585,7 +1611,7 @@ procedure weight_win(variable weight, variable type) begin
 
    if inven_weight then begin
       selectWin("inven_weight");
-      display("PCX/inv_filter/weight.pcx");
+      display("PCX\\inv_filter\\weight.pcx");
       SetFont(1);
 
       if (current_swap_number > 0) then begin
@@ -1610,6 +1636,8 @@ end
 procedure weight_loot_win(variable obj) begin
    variable weight;
 
+   TRACE("weight_loot_win")
+
    //создание окна для отображения веса предметов
    if not(inven_loot_weight) then begin
       createWin("inven_loot_weight", t_menu_x, menu_y + 150, 63, 20);
@@ -1617,7 +1645,7 @@ procedure weight_loot_win(variable obj) begin
    end
 
    selectWin("inven_loot_weight");
-   display("PCX/inv_filter/weight.pcx");
+   display("PCX\\inv_filter\\weight.pcx");
    SetFont(1);
 
    if (obj_type(obj) == OBJ_TYPE_CRITTER) then
@@ -1632,6 +1660,8 @@ end
 
 procedure barter_weight_win(variable weight) begin
 
+   TRACE("barter_weight_win")
+
    weight += who_carry_amount(dude_obj);
    if critter then weight += who_carry_amount(critter);
    if (tr_bTable) then weight += who_carry_amount(tr_bTable);
@@ -1643,17 +1673,19 @@ procedure barter_weight_win(variable weight) begin
    end
 
    selectWin("inven_weight");
-   display("PCX/inv_filter/weight.pcx");
+   display("PCX\\inv_filter\\weight.pcx");
 
    if (current_swap_number > 0) then begin
       weight += who_carry_amount(swap_ptr); // swap-critter current equip items
       weight -= dudeEquipItemsWeight;
    end
 
-   call print_weight(weight, dudeMaxWeight);
+   call print_weight(weight, swapMaxWeight if (swapMaxWeight != -1) else dude_max_carry);
 end
 
 procedure party_weight_win(variable weight) begin
+
+   TRACE("party_weight_win")
 
    //создание окна для отображения веса у напарника во время обмена в бартере
    if not(inven_party_weight) then begin
@@ -1662,7 +1694,7 @@ procedure party_weight_win(variable weight) begin
    end
 
    selectWin("inven_party_weight");
-   display("PCX/inv_filter/weight.pcx");
+   display("PCX\\inv_filter\\weight.pcx");
 
    weight += who_carry_amount(trader_ptr);
    weight += who_carry_amount(pc_bTable);
@@ -1672,6 +1704,8 @@ procedure party_weight_win(variable weight) begin
 end
 
 procedure print_weight(variable weight, variable maxWeight) begin
+
+   TRACE("print_weight")
 
    if (maxWeight and weight > maxWeight) then
       SetTextColor(1.0, 0.1, 0.0);
@@ -1696,7 +1730,7 @@ procedure trader_cost_win begin
 
 startcritical;
    selectWin("inven_caps");
-   display("PCX/inv_filter/weight.pcx");
+   display("PCX\\inv_filter\\weight.pcx");
    SetTextColor(r, g, b);
    Format("$" + item_caps_total(trader_ptr), 0, 6, 63, 10, justifycenter);
    showWin;
@@ -1733,9 +1767,30 @@ procedure Move_Object_Inventary(variable src_obj, variable dst_obj, variable all
    end
 end
 
+/////////////////////////////////////// EXCHANGE FEATURE ///////////////////////////////////////////
+
+procedure GetAndSaveDudeWeight begin
+   dudeBaseMaxWeight := get_pc_base_stat(STAT_carry_amt);
+   dudeExtraMaxWeight := get_pc_extra_stat(STAT_carry_amt);
+   dudeWeightBonus = GetDudeWeightBonus; // engine -/+bonus
+   swapMaxWeight = dude_max_carry;
+end
+
+procedure GetDudeWeightBonus begin
+   variable bonus;
+   set_pc_base_stat(STAT_carry_amt, 100);
+   set_pc_extra_stat(STAT_carry_amt, 0);
+   bonus = 100 - dude_max_carry;
+   set_pc_base_stat(STAT_carry_amt, dudeBaseMaxWeight);
+   set_pc_extra_stat(STAT_carry_amt, dudeExtraMaxWeight);
+   return bonus; // возвращает положительное значение бонуса, если имеется движковое пенальти к максимальному весу
+end
+
 procedure SwappingParty(variable type, variable value) begin
    variable ptr, name, skip, flag, loop := true;
    variable currW, fid;
+
+   TRACE("SwappingParty")
 
    while (read_int(0x59E96C)) do begin // проверить открыты ли сумки
       call_offset_v2(0x476394, 2500, 2 + dude_enter_barter); //функция закрыть открытую сумку
@@ -1749,7 +1804,7 @@ procedure SwappingParty(variable type, variable value) begin
       flag := get_proto_data(obj_pid(ptr), PROTO_CR_FLAGS);
       if (flag bwand CFLG_BARTER) == false or (flag bwand CFLG_NOSTEAL) then skip := true;
       if skip or (tile_distance_objs(dude_obj, ptr) > 30) then begin
-         if not(skip) then display_msg(name + get_ini_string(iniConfigFile + "MsgSwap"));
+         if not(skip) then display_msg(name + get_ini_string(iniConfig + "MsgSwap"));
          current_swap_number += value;
          if (current_swap_number > len_party_array) then current_swap_number := 0;
          ptr := swap_party_array[current_swap_number];
@@ -1765,7 +1820,7 @@ procedure SwappingParty(variable type, variable value) begin
       dudeEquipItemsWeight := who_carry_amount(dude_obj);  // вес экипированных вещей
    end
 
-   debug_msg("Swapping with: " + name);
+   debug_msg("Filter: Swapping with " + name);
 
    if (swap_ptr != 0) then begin
       if (swap_ptr == dude_obj and ptr != dude_obj) then begin
@@ -1785,15 +1840,13 @@ procedure SwappingParty(variable type, variable value) begin
 
    // set carry
    if (swap_ptr != dude_obj) then begin
-      currW := who_carry_amount(swap_ptr);                // текущий вес криттера
-      dudeMaxWeight := get_critter_stat(swap_ptr, STAT_carry_amt); // максимальный подъемный вес криттера
-      set_pc_base_stat(STAT_carry_amt, 0);
-      set_pc_extra_stat(STAT_carry_amt, dudeMaxWeight - currW + dudeEquipItemsWeight);
+      call SetDudeSwapWeight(swap_ptr);
+      swapMaxWeight := get_critter_stat(swap_ptr, STAT_carry_amt); // максимальный подъемный вес криттера
    end
    else begin
       set_pc_base_stat(STAT_carry_amt, dudeBaseMaxWeight);
       set_pc_extra_stat(STAT_carry_amt, dudeExtraMaxWeight);
-      dudeMaxWeight := dude_max_carry;
+      swapMaxWeight := dude_max_carry;
    end
 
    if (type) then begin
@@ -1822,6 +1875,26 @@ procedure SwappingParty(variable type, variable value) begin
    end
 end
 
+procedure SetDudeSwapWeight(variable swapCritter) begin
+   variable
+      // максимальный подъемный вес криттера
+      base = get_critter_base_stat(swapCritter, STAT_carry_amt),
+      extra = get_critter_extra_stat(swapCritter, STAT_carry_amt),
+      directWeight = base + extra - who_carry_amount(swapCritter); // минус текущий вес экипировки криттера
+
+   set_critter_base_stat(swapCritter, STAT_carry_amt, 100);
+   set_critter_extra_stat(swapCritter, STAT_carry_amt, 0);
+
+   directWeight += get_critter_stat(swapCritter, STAT_carry_amt) - 100; // учитываем возможный -+бонус движка
+
+   set_critter_base_stat(swapCritter, STAT_carry_amt, base);
+   set_critter_extra_stat(swapCritter, STAT_carry_amt, extra);
+
+   // устанавливаем вес игроку в соответствии с характеристиками криттера
+   set_pc_base_stat(STAT_carry_amt, dudeWeightBonus);
+   set_pc_extra_stat(STAT_carry_amt, directWeight + dudeEquipItemsWeight);
+end
+
 procedure get_party_array(variable ptr_check) begin
 
    swap_party_array := party_member_list_critters;
@@ -1843,7 +1916,7 @@ procedure swap_button_pressed(variable btn) begin
       pressed_once := true;
 
       if dude_in_barter and not(btn_all) then begin
-         display_msg(get_ini_string(iniConfigFile + "MsgSwapFilter"));
+         display_msg(get_ini_string(iniConfig + "MsgSwapFilter"));
          play_sfx("IISXXXX1");
          return;
       end
@@ -1858,6 +1931,8 @@ procedure swap_button_pressed(variable btn) begin
       end
       play_sfx("IB2P1XX1");
       if (btn == 0) then btn--;
+
+      if (swapMaxWeight == -1) then call GetAndSaveDudeWeight; // сохраняем статы веса игрока если еще не были сохранены
       call SwappingParty(true, btn);
    end
 
@@ -1892,6 +1967,8 @@ end
 
 procedure create_swap_win(variable x_offset, variable y_offset) begin
 
+   TRACE("create_swap_win")
+
    swap_win_x := x_offset;
    swap_win_y := y_offset;
 
@@ -1899,24 +1976,18 @@ procedure create_swap_win(variable x_offset, variable y_offset) begin
    call swap_name(obj_name(dude_obj));
 
    AddButton("btn_next", 123, 9, 23, 20);
-   AddButtonGFX("btn_next", "PCX/inv_filter/right_dn.pcx", "PCX/inv_filter/right_up.pcx", "");
+   AddButtonGFX("btn_next", "PCX\\inv_filter\\right_dn.pcx", "PCX\\inv_filter\\right_up.pcx", "");
 
    AddButton("btn_back", 4, 9, 23, 20);
-   AddButtonGFX("btn_back", "PCX/inv_filter/left_dn.pcx", "PCX/inv_filter/left_up.pcx", "");
+   AddButtonGFX("btn_back", "PCX\\inv_filter\\left_dn.pcx", "PCX\\inv_filter\\left_up.pcx", "");
 
    showWin;
-
-   // сохраняем статы веса игрока если не были сохранены
-   if (dudeMaxWeight == -1) then begin
-      dudeBaseMaxWeight := get_pc_base_stat(STAT_carry_amt);
-      dudeExtraMaxWeight := get_pc_extra_stat(STAT_carry_amt);
-   end
 end
 
 procedure swap_name(variable name) begin
 
    selectWin("swap_win");
-   Display("PCX/inv_filter/swap_win.pcx");
+   Display("PCX\\inv_filter\\swap_win.pcx");
    SetTextColor(1.0, 1.0, 1.0);
    Format(name, 0, 13, 150, 10, justifycenter);
 
@@ -1926,7 +1997,7 @@ procedure swap_loot_next_btn(variable pressed) begin
    variable btn_next, type := "up";
    if (pressed) then type := "dn";
 
-   btn_next := "PCX/inv_filter/right_" + type + ".pcx";
+   btn_next := "PCX\\inv_filter\\right_" + type + ".pcx";
    selectWin("swap_win");
    AddButtonGFX("btn_next", "", btn_next, "");
    showWin;
@@ -1937,7 +2008,7 @@ procedure swap_loot_back_btn(variable pressed) begin
    variable btn_back, type := "up";
    if (pressed) then type := "dn";
 
-   btn_back := "PCX/inv_filter/left_" + type + ".pcx";
+   btn_back := "PCX\\inv_filter\\left_" + type + ".pcx";
    selectWin("swap_win");
    AddButtonGFX("btn_back", "", btn_back, "");
    showWin;
@@ -1963,6 +2034,8 @@ procedure destroy_swap begin
    swap_party_array := 0;
 end
 
+/////////////////////////////////////// DROP BUTTON ////////////////////////////////////////////////
+
 procedure CreateDropAllBtn begin
    variable x := (screen_width_half) + x_shift_loot;
    variable y := (screen_height_half);
@@ -1980,7 +2053,7 @@ procedure CreateDropAllBtn begin
    if (useBackImage) then begin
       create_win("drop_win", x - 205, y - 50, 55, 96);
       selectWin("drop_win");
-      Display("PCX/inv_filter/DropAll_Back.pcx");
+      Display("PCX\\inv_filter\\DropAll_Back.pcx");
       AddButton("btn_drop", 7, 13, 40, 40);
    end
    else begin
@@ -1990,9 +2063,9 @@ procedure CreateDropAllBtn begin
    end
 
    if (btnGiveAll and (obj_type(lootObj) == OBJ_TYPE_CRITTER and critter_state(lootObj) != CRITTER_IS_DEAD)) then
-      AddButtonGFX("btn_drop", "PCX/inv_filter/GiveAll_Dn.pcx", "PCX/inv_filter/GiveAll_Up.pcx", "");
+      AddButtonGFX("btn_drop", "PCX\\inv_filter\\GiveAll_Dn.pcx", "PCX\\inv_filter\\GiveAll_Up.pcx", "");
    else
-      AddButtonGFX("btn_drop", "PCX/inv_filter/DropAll_Dn.pcx", "PCX/inv_filter/DropAll_Up.pcx", "");
+      AddButtonGFX("btn_drop", "PCX\\inv_filter\\DropAll_Dn.pcx", "PCX\\inv_filter\\DropAll_Up.pcx", "");
    AddButtonProc("btn_drop", key_drop_null, key_drop_null, key_drop_press, key_drop_release);
    showWin;
    dropKeyWin := true;
