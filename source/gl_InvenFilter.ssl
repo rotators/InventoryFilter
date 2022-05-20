@@ -15,7 +15,7 @@
 #endif
 
 #define COMBINE_VERSION       (1)
-#define SCRIPT_VERSION        " [Advanced v1.6.1]"
+#define SCRIPT_VERSION        " [Advanced v1.6.2]"
 
 #define INI_CONFIG_FILE       "\\InventoryFilter.dat\\InvenFilter.ini"
 #define INI_CONFIG_FILE_SEC   INI_CONFIG_FILE "|InventoryFilter|"
@@ -79,6 +79,7 @@ procedure HightlightButton(variable btn, variable flag, variable trd);
 procedure DeletePressButton;
 procedure DeletePressButtonTrd;
 procedure subDeleteButton(variable btn, variable type, variable flag);
+procedure get_item_weight(variable item);
 procedure refresh_pc_weight;
 procedure weight_win(variable weight, variable type);
 procedure weight_loot_win(variable obj);
@@ -774,7 +775,6 @@ variable weight, prev_counter := 0;
             else weight += proto_data(item_pid, it_weight) * items;
             prev_counter := item_counter;
          end
-
       end
       else begin
          item_counter++;
@@ -1579,17 +1579,28 @@ procedure subDeleteButton(variable btn, variable type, variable flag) begin
 
 end
 
+procedure get_item_weight(variable item) begin
+   if (obj_item_subtype(item) == item_type_weapon) then begin
+      return call_offset_r1(0x477B88, item);  /* Engine get weight for weapon */
+   end
+   return (proto_data(obj_pid(item), it_weight));
+end
+
 procedure refresh_pc_weight begin
    variable equp, item;
 
    TRACE("refresh_pc_weight")
 
    item := critter_inven_obj2(dude_obj, INVEN_TYPE_WORN);
-   if (item) then equp := proto_data(obj_pid(item), it_weight);
+   if (item) then begin
+      item = obj_pid(item);
+      equp := proto_data(item, it_weight);
+      if (armor_engine_weight(item)) then equp /= 2;
+   end
    item := critter_inven_obj2(dude_obj, INVEN_TYPE_LEFT_HAND);
-   if (item) then equp += proto_data(obj_pid(item), it_weight);
+   if (item) then equp += get_item_weight(item);
    item := critter_inven_obj2(dude_obj, INVEN_TYPE_RIGHT_HAND);
-   if (item) then equp += proto_data(obj_pid(item), it_weight);
+   if (item) then equp += get_item_weight(item);
 
    call weight_win(who_carry_amount(dude_obj) - equp, 0);
 end
