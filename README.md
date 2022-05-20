@@ -37,3 +37,10 @@ This is how it's supposed to look like when installed:
 ## Uninstallation
 Delete `mods/InventoryFilter.dat` folder.
 * If you installed the mod for sfall 3.8.x, delete `data/scripts/gl_InvenFilter.int` file and `data/PCX/inv_filter` folder as well.
+
+## Screenshots
+![Player's inventory](pics/scr_player_inv.png)
+
+![Opening containers](pics/scr_loot.png)
+
+![Barter screen](pics/scr_barter.png)
