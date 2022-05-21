@@ -14,7 +14,7 @@
 #define DTRACE(name)
 #endif
 
-#define SCRIPT_VERSION        " [script v2.0]"
+#define SCRIPT_VERSION        " [v2.0.2]"
 
 #define INI_CONFIG_FILE       "\\mods\\InventoryFilter.dat\\InvenFilter.ini"
 #define INI_CONFIG_FILE_SEC   INI_CONFIG_FILE "|InventoryFilter|"
@@ -129,13 +129,13 @@ variable begin
 
    interfaceX, interfaceY;
    menu_x, menu_y, x_mouse, y_mouse, posXmouse, posYmouse, r_menu_x;
-   weight_win_x, weight_win_y, r_weight_win_x;
+   weight_win_x, weight_win_y, r_weight_win_x, weight_win_y_shift := 318;
 
    filterRightMenu;
    barterOutsideInterface = 1; // location of the menu outside the dialog interface
    filterMessageWin;
 
-   IsEnabled;
+   enableState;
    IsCreated;
 
    weightIsEnabled := false;
@@ -251,8 +251,9 @@ procedure start begin
 
       set_global_script_type(1);
 
-      IsEnabled := not(get_sfall_global_int("INV_FLTR"));
-      if not(IsEnabled) then display_msg(get_ini_string(iniConfig + "MsgInfo"));
+      enableState := get_sfall_global_int("INV_FLTR");
+      if (enableState == 0) then enableState := 1;
+      if (enableState == 2) then display_msg(get_ini_string(iniConfig + "MsgInfo"));
 
       if (get_screen_height > 480) then begin
          swapIsEnabled := get_ini_setting(iniConfig + "SwapParty");
@@ -278,6 +279,8 @@ procedure start begin
          toolGroupPids[i] = atoi(pid);
          i++;
       end
+
+      weight_win_y_shift := weight_win_y_shift + get_ini_setting(iniConfig + "WeightWinShift");
 
      #if DEBUG // test items
         foreach (pid in toolGroupPids) begin
@@ -320,7 +323,7 @@ end
 procedure GameModeChangeHook begin
    variable mode = get_game_mode;
    if (filterMessageWin andAlso (mode bwand (WORLDMAP bwor LOADGAME) or get_sfall_arg)) then call destroy_message_win;
-   if (IsEnabled == false) then return;
+   if (enableState == 2) then return;
 
    if (mode bwand (INTFACEUSE bwor INVENTORY bwor BARTER bwor INTFACELOOT)) then begin
       lootFilter = mode bwand INTFACELOOT;
@@ -385,7 +388,7 @@ procedure CreateInvenFilterLeftMenu(variable isLoot) begin
 
    if (weightIsEnabled andAlso mode bwand INVENTORY) then begin
       weight_win_x = interfaceX + 48;
-      weight_win_y = interfaceY + 318;
+      weight_win_y = interfaceY + weight_win_y_shift;
    end
 
    if (isLoot) then begin
@@ -848,7 +851,7 @@ procedure MoveItemHook begin
 */
    variable obj, item, count; //weight;
 
-   if not(IsEnabled) then return;
+   if (enableState == 2) then return;
 
    if (weightIsEnabled and lootFilter and filter_done and not(loot_weight)) then begin
       loot_weight := true;
@@ -906,7 +909,7 @@ procedure BarterHook begin
 */
    variable barter_args, caps, diff, playerCost;
 
-   if (IsEnabled == false) then return;
+   if (enableState == 2) then return;
    barter_args := get_sfall_args;
 
    if (pcInBarter == false) then begin
@@ -950,7 +953,7 @@ variable type  := get_sfall_arg, // event type: 1 - pressed, 0 - released
          text;
 
    if key == DIK_F11 and type == 0 and get_game_mode == 0 then begin
-      if IsEnabled then begin
+      if (enableState == 1) then begin
          text = get_ini_string(iniConfig + "MsgOff"); //"Inventory Filter is disabled."
       end else begin
          text = get_ini_string(iniConfig + "MsgOn") + SCRIPT_VERSION; //"Inventory Filter is enabled."
@@ -967,12 +970,13 @@ variable type  := get_sfall_arg, // event type: 1 - pressed, 0 - released
       ShowWin;
 
       filterMessageWin = true;
-      IsEnabled = not(IsEnabled);
-      set_sfall_global("INV_FLTR", IsEnabled);
+      enableState++;
+      if (enableState > 2) then enableState := 1;
+      set_sfall_global("INV_FLTR", enableState);
 
       call destroy_message_win in 3;
    end
-   else if (IsEnabled and IsCreated) then begin
+   else if ((enableState == 1) and IsCreated) then begin
       if (key == drop_key_code and (get_game_mode bwand INTFACELOOT)) then begin
          if (type == 1) then call key_drop_press;
          if (type == 0) then call key_drop_release;
@@ -994,7 +998,7 @@ end
 procedure MouseClickHook begin
 variable type, button;
 
-   if (IsEnabled andAlso (get_game_mode bwand (INVENTORY bwor INTFACEUSE bwor INTFACELOOT bwor BARTER))) then begin
+   if ((enableState == 1) andAlso (get_game_mode bwand (INVENTORY bwor INTFACEUSE bwor INTFACELOOT bwor BARTER))) then begin
 
       type   := get_sfall_arg;   // event type: 1 - pressed, 0 - released
       button := get_sfall_arg;   // button number (0 - left, 1 - right, up to 7)
@@ -1389,7 +1393,7 @@ procedure weight_win(variable weight, variable type) begin
 
    variable wMax := swapMaxWeight if (swapMaxWeight != -1) else dude_max_weight;
 
-   SetFont(1);
+   SetFont(101);
    if (current_swap_number > 0) then begin
       weight += who_carry_amount(swap_ptr); // swap-critter current equip items
       weight -= dudeEquipItemsWeight;
@@ -1426,7 +1430,7 @@ procedure weight_loot_win(variable obj) begin
       selectWin("inven_loot_weight");
       sfall_func0("win_fill_color");
    end
-   SetFont(1);
+   SetFont(101);
 
    if (obj_type(obj) == OBJ_TYPE_CRITTER) then begin
       weight = who_carry_amount(obj);
@@ -1724,7 +1728,7 @@ procedure barter_swap_win begin
 end
 
 procedure loot_swap_win begin
-   SetFont(1);
+   SetFont(101);
    if get_party_array(lootObject) then call create_swap_win(swap_loot_win_x + swap_loot_offset, swap_loot_win_y);
 end
 
@@ -1788,7 +1792,7 @@ procedure CreateDropAllBtn begin
    selectWin("drop_win");
    AddButton("btn_drop", 0, 0, 40, 40);
 
-   if (btnGiveAll and (obj_type(lootObject) == OBJ_TYPE_CRITTER and critter_state(lootObject) != CRITTER_IS_DEAD)) then
+   if ((btnGiveAll > 0) and (obj_type(lootObject) == OBJ_TYPE_CRITTER and critter_state(lootObject) != CRITTER_IS_DEAD)) then
       AddButtonGFX("btn_drop", "PCX\\InvFilterArt\\GiveAll_Dn.pcx", "PCX\\InvFilterArt\\GiveAll_Up.pcx", "");
    else
       AddButtonGFX("btn_drop", "PCX\\InvFilterArt\\DropAll_Dn.pcx", "PCX\\InvFilterArt\\DropAll_Up.pcx", "");
