@@ -202,7 +202,7 @@ procedure start begin
 
       // for sFall 4.2.8+ format 4208
       sfall_version := (1000 * sfall_ver_major) + (100 * sfall_ver_minor) + sfall_ver_build;
-      if (sfall_version < 4208) then begin
+      if ((sfall_version < 3837) orElse (sfall_version >= 4000 and sfall_version < 4208)) then begin
          display_msg(get_ini_string(iniConfig + "MsgVersion")); // Inventory фильтр требует sfall 4.2.8 или более поздней версии.
          return;
       end

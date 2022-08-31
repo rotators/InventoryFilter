@@ -13,14 +13,15 @@ A mirror repository of the Inventory Filter mod for Fallout 2 by **Mr.Stalin**, 
 ## Installation
 1. Download `F2-InventoryFilter_v*_<language>.rar` from the _Releases_ page.
 2. Extract the archive to main game directory.
-3. Inventory Filter v2.0.2 requires [**sfall**](https://github.com/sfall-team/sfall) (`ddraw.dll`) version 4.2.8.1 or later.
+3. Inventory Filter v2.0.2 requires [**sfall**](https://github.com/sfall-team/sfall) (`ddraw.dll`) version 4.2.8.1/3.8.37 or later.
    * `AllowUnsafeScripting` option in ddraw.ini must be enabled for the filter to function correctly.
 4. Edit `mods/InventoryFilter.dat/InventoryFilter.ini` to configure the behavior of the filter.
 
 This is how it's supposed to look like when installed:
 ![installed](pics/installed.png)
 
-* Note for the hi-res patch by Mash: DirectDraw 7 graphics mode is known to cause some display glitches to the filter. Make sure you are using **DirectX 9** mode.
+* Note for the hi-res patch by Mash: DirectDraw 7 graphics mode is known to cause some display glitches with the filter. It is recommended to use **DirectX 9** mode.
+* Note for sfall 3.8.x: move `PCX` and `scripts` folders into the `data` folder in main game directory after step 2.
 
 ## Usage Notes
 * Click the middle mouse button on the "Weapons" and "Ammo" menu buttons to display items from these categories simultaneously in the player's inventory. Also, clicking the middle mouse button on the "Weapons" menu button will display only the "Guns" type of weapons.
@@ -34,6 +35,7 @@ This is how it's supposed to look like when installed:
 
 ## Uninstallation
 Delete `mods/InventoryFilter.dat` folder.
+* If you installed the mod for sfall 3.8.x, delete `data/scripts/gl_InvenFilter.int` file and `data/PCX/InvFilterArt` folder as well.
 
 ## Screenshots
 ![Player's inventory](pics/scr_player_inv.png)
