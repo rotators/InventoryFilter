@@ -14,13 +14,13 @@ A mirror repository of the Inventory Filter mod for Fallout 2 by Mr.Stalin, base
 1. Download `F2-InventoryFilter_v*_<language>.rar` from the [release archive](archive).
 2. Extract the `mods` folder to your main game directory.
 3. Inventory Filter v2.0.2 requires [**sfall**](https://github.com/sfall-team/sfall) (`ddraw.dll`) version 4.2.8.1/3.8.37 or later. The **AllowUnsafeScripting** option in `ddraw.ini` must be enabled for the filter to function correctly.
-4. Edit `mods/InventoryFilter.dat/InvenFilter.ini` to configure the behavior of the filter.
+4. If a `mods_order.txt` already exists in your `mods` folder, add **InventoryFilter.dat** to it.
+5. Edit `mods\InventoryFilter.dat\InvenFilter.ini` to configure the behavior of the filter.
 
 This is how it's supposed to look like when installed:
 ![installed](pics/installed.png)
 
 * Note for the hi-res patch by Mash: DirectDraw 7 graphics mode is known to cause some display glitches with the filter. It is recommended to use **DirectX 9** mode.
-* Note for sfall 3.8.38+: The path to the mod folder needs to be set in the **[ExtraPatches]** section in `ddraw.ini`. Add `PatchFile[number]=mods\InventoryFilter.dat` at the end of the "PatchFile" list. If there are more than one additional mod, make sure to correctly number the "PatchFileX" entries (0, 1, 2, 3, ...).
 
 ## Usage Notes
 * Click the middle mouse button on the "Weapons" and "Ammo" menu buttons to display items from these categories simultaneously in the player's inventory. Also, clicking the middle mouse button on the "Weapons" menu button will display only the "Guns" type of weapons.
@@ -33,7 +33,7 @@ This is how it's supposed to look like when installed:
 * To turn the filter on or off, use the F11 key.
 
 ## Uninstallation
-Delete `mods/InventoryFilter.dat` folder.
+Delete `mods\InventoryFilter.dat` folder and remove its name from `mods_order.txt`.
 
 ## Screenshots
 ![Player's inventory](pics/scr_player_inv.png)
