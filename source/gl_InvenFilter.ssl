@@ -14,7 +14,7 @@
 #define DTRACE(name)
 #endif
 
-#define SCRIPT_VERSION        " [v2.0.2]"
+#define SCRIPT_VERSION        " [v2.0.3]"
 
 #define INI_CONFIG_FILE       "\\mods\\InventoryFilter.dat\\InvenFilter.ini"
 #define INI_CONFIG_FILE_SEC   INI_CONFIG_FILE "|InventoryFilter|"
@@ -983,12 +983,11 @@ variable type  := get_sfall_arg, // event type: 1 - pressed, 0 - released
       end
       else if (type == 1 andAlso (get_game_mode bwand COUNTERWIN) == false) then begin
          variable i, hotKey;
-         foreach (hotKey in hotKeys) begin
+         foreach (i : hotKey in hotKeys) begin
             if (key == hotKey) then begin
                call filter_by_key(i);
                break;
             end
-            i++;
          end
       end
       if (type == 0 andAlso isPressed) then isPressed := false;
@@ -1073,38 +1072,50 @@ variable type, button;
 end
 
 procedure filter_by_key(variable keyType) begin
-   if (keyType > 5 andAlso (pcInBarter orElse lootFilter) == false) then return;
+   if (keyType[0] == "n" andAlso (pcInBarter orElse lootFilter) == false) then return;
 
    switch (keyType) begin
-      case 0  : if not(btn_all) and not(sortFilter) then call inven_filter_button_pressed("all", -1, 0);
-      case 1  : if not(btn_armor) then call inven_filter_button_pressed("armor", item_type_armor, 0);
-      case 2  : if not(btn_weapon) then begin
-                     call inven_filter_button_pressed("weapon", item_type_weapon, 0);
-                     sec_click := true;
-                end
-                else if (sec_click) then begin
-                  call inven_filter_button_pressed("weapon", item_type_weapon, 2);
-                  filterOnlyGun = true;
-                  sec_click := false;
-                end
-      case 3  : if not(btn_ammo) then call inven_filter_button_pressed("ammo", item_type_ammo, 0);
-      case 4  : if not(btn_drug) then call inven_filter_button_pressed("drug", item_type_drug, 0);
-      case 5  : if not(btn_tool) then
-                     call inven_filter_button_pressed("tool", item_type_tool_group, 0);
-                else if (btn_tool) then begin
-                     call inven_filter_button_pressed("misc", item_type_misc_item, 0);
-                end
+      case "pAll":
+         if not(btn_all) and not(sortFilter) then call inven_filter_button_pressed("all", -1, 0);
+      case "pArmor":
+         if not(btn_armor) then call inven_filter_button_pressed("armor", item_type_armor, 0);
+      case "pWeapon":
+         if not(btn_weapon) then begin
+            call inven_filter_button_pressed("weapon", item_type_weapon, 0);
+            sec_click := true;
+         end
+         else if (sec_click) then begin
+           call inven_filter_button_pressed("weapon", item_type_weapon, 2);
+           filterOnlyGun = true;
+           sec_click := false;
+         end
+      case "pAmmo":
+         if not(btn_ammo) then call inven_filter_button_pressed("ammo", item_type_ammo, 0);
+      case "pDrug":
+         if not(btn_drug) then call inven_filter_button_pressed("drug", item_type_drug, 0);
+      case "pMisc":
+         if not(btn_tool) then
+            call inven_filter_button_pressed("tool", item_type_tool_group, 0);
+         else if (btn_tool) then begin
+            call inven_filter_button_pressed("misc", item_type_misc_item, 0);
+         end
       // for trader/loot
-      case 6  : if not(btn_trd_all) and not(sortFilter) then call inven_filter_trd_button_pressed("all", -1);
-      case 7  : if not(btn_trd_armor) then call inven_filter_trd_button_pressed("armor", item_type_armor);
-      case 8  : if not(btn_trd_weapon) then call inven_filter_trd_button_pressed("weapon", item_type_weapon);
-      case 9  : if not(btn_trd_ammo) then call inven_filter_trd_button_pressed("ammo", item_type_ammo);
-      case 10 : if not(btn_trd_drug) then call inven_filter_trd_button_pressed("drug", item_type_drug);
-      case 11 : if not(btn_trd_tool) then
-                     call inven_filter_trd_button_pressed("tool", item_type_tool_group);
-                else if (btn_trd_tool) then begin
-                     call inven_filter_trd_button_pressed("misc", item_type_misc_item);
-                end
+      case "nAll":
+         if not(btn_trd_all) and not(sortFilter) then call inven_filter_trd_button_pressed("all", -1);
+      case "nArmor":
+         if not(btn_trd_armor) then call inven_filter_trd_button_pressed("armor", item_type_armor);
+      case "nWeapon":
+         if not(btn_trd_weapon) then call inven_filter_trd_button_pressed("weapon", item_type_weapon);
+      case "nAmmo":
+         if not(btn_trd_ammo) then call inven_filter_trd_button_pressed("ammo", item_type_ammo);
+      case "nDrug":
+         if not(btn_trd_drug) then call inven_filter_trd_button_pressed("drug", item_type_drug);
+      case "nMisc":
+         if not(btn_trd_tool) then
+            call inven_filter_trd_button_pressed("tool", item_type_tool_group);
+         else if (btn_trd_tool) then begin
+            call inven_filter_trd_button_pressed("misc", item_type_misc_item);
+         end
    end
 end
 

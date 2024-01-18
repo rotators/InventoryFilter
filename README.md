@@ -13,7 +13,7 @@ A mirror repository of the Inventory Filter mod for Fallout 2 by Mr.Stalin, base
 ## Installation
 1. Download `F2-InventoryFilter_v*_<language>.rar` from the [release archive](archive).
 2. Extract the `mods` folder to your main game directory.
-3. Inventory Filter v2.0.2 requires [**sfall**](https://github.com/sfall-team/sfall) (`ddraw.dll`) version 4.2.8.1/3.8.37 or later. The **AllowUnsafeScripting** option in `ddraw.ini` must be enabled for the filter to function correctly.
+3. Inventory Filter v2.0.3 requires [**sfall**](https://github.com/sfall-team/sfall) (`ddraw.dll`) version 4.2.8.1/3.8.37 or later. The **AllowUnsafeScripting** option in `ddraw.ini` must be enabled for the filter to function correctly.
 4. If a `mods_order.txt` already exists in your `mods` folder, add **InventoryFilter.dat** to it.
 5. Edit `mods\InventoryFilter.dat\InvenFilter.ini` to configure the behavior of the filter.
 
