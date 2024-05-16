@@ -178,7 +178,7 @@ variable begin
    swap_party_array; // массив указателей партийцев
    len_party_array, current_swap_number := -1;
 
-   swap_win_x, swap_win_y, swap_barter_offset, swap_loot_offset;
+   swap_win_x, swap_win_y, swap_barter_offset, swap_barter_y_offset, swap_loot_offset, swap_loot_y_offset;
 
    btnDropAll, btnGiveAll, useBackImage, dropPress, drop_key_code, dropButtonWin;
 
@@ -261,8 +261,8 @@ procedure start begin
             swapAllContainers := get_ini_setting(iniConfig + "SwapContainers");
             swap_loot_offset := get_ini_setting(iniConfig + "SwapLootOffset");
             swap_barter_offset := get_ini_setting(iniConfig + "SwapBarterOffset");
-            //swap_loot_y_offset := get_ini_setting(iniConfig + "SwapLootYOffset");
-            //swap_barter_y_offset := get_ini_setting(iniConfig + "SwapBarterYOffset");
+            swap_loot_y_offset := get_ini_setting(iniConfig + "SwapLootYOffset");
+            swap_barter_y_offset := get_ini_setting(iniConfig + "SwapBarterYOffset");
          end
       end
 
@@ -1735,12 +1735,12 @@ procedure back_swap_ptr begin
 end
 
 procedure barter_swap_win begin
-   if get_party_array(dialogCritter) then call create_swap_win(swap_brtr_win_x + swap_barter_offset, swap_brtr_win_y);
+   if get_party_array(dialogCritter) then call create_swap_win(swap_brtr_win_x + swap_barter_offset, swap_brtr_win_y + swap_barter_y_offset);
 end
 
 procedure loot_swap_win begin
    SetFont(101);
-   if get_party_array(lootObject) then call create_swap_win(swap_loot_win_x + swap_loot_offset, swap_loot_win_y);
+   if get_party_array(lootObject) then call create_swap_win(swap_loot_win_x + swap_loot_offset, swap_loot_win_y + swap_loot_y_offset);
 end
 
 procedure create_swap_win(variable x_offset, variable y_offset) begin
