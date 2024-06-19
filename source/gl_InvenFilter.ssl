@@ -14,7 +14,7 @@
 #define DTRACE(name)
 #endif
 
-#define SCRIPT_VERSION        " [v2.0.3]"
+#define SCRIPT_VERSION        " [v2.0.4]"
 
 #define INI_CONFIG_FILE       "\\mods\\InventoryFilter.dat\\InvenFilter.ini"
 #define INI_CONFIG_FILE_SEC   INI_CONFIG_FILE "|InventoryFilter|"
